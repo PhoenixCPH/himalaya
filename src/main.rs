@@ -1,12 +1,20 @@
 mod account;
 mod cli;
 mod config;
+#[cfg(any(feature = "jmap", feature = "maildir"))]
+mod envelopes;
+#[cfg(any(feature = "imap", feature = "jmap", feature = "maildir"))]
+mod flags;
 #[cfg(feature = "imap")]
 mod imap;
 #[cfg(feature = "jmap")]
 mod jmap;
+#[cfg(any(feature = "imap", feature = "jmap", feature = "maildir"))]
+mod mailboxes;
 #[cfg(feature = "maildir")]
 mod maildir;
+#[cfg(any(feature = "imap", feature = "maildir", feature = "smtp"))]
+mod messages;
 #[cfg(feature = "smtp")]
 mod smtp;
 
