@@ -39,7 +39,7 @@ impl ImapMailboxUnselectCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxUnselectResult::Err { err, .. } => bail!(err),
+                ImapMailboxUnselectResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

@@ -50,7 +50,7 @@ impl ImapMailboxPurgeCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -75,7 +75,7 @@ impl ImapMailboxPurgeCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageStoreSilentResult::Err { err, .. } => bail!(err),
+                ImapMessageStoreSilentResult::Err { err, .. } => bail!("{err}"),
             }
         };
 
@@ -93,7 +93,7 @@ impl ImapMailboxPurgeCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxExpungeResult::Err { err, .. } => bail!(err),
+                ImapMailboxExpungeResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

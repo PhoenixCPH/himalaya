@@ -43,7 +43,7 @@ impl JmapSubmissionCancelCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailSubmissionCancelResult::Err(err) => bail!(err),
+                JmapEmailSubmissionCancelResult::Err(err) => bail!("{err}"),
             }
         };
 

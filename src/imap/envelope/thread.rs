@@ -77,7 +77,7 @@ impl ImapEnvelopeThreadCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -105,7 +105,7 @@ impl ImapEnvelopeThreadCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageThreadResult::Err { err, .. } => bail!(err),
+                ImapMessageThreadResult::Err { err, .. } => bail!("{err}"),
             }
         };
 
@@ -198,7 +198,7 @@ fn fetch_subjects(
                 imap.stream.write_all(&bytes)?;
                 arg = None;
             }
-            ImapMessageFetchResult::Err { err, .. } => bail!(err),
+            ImapMessageFetchResult::Err { err, .. } => bail!("{err}"),
         }
     };
 

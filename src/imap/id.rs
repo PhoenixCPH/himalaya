@@ -78,7 +78,7 @@ impl ImapIdCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapServerIdResult::Err { err, .. } => bail!(err),
+                ImapServerIdResult::Err { err, .. } => bail!("{err}"),
             }
         };
 

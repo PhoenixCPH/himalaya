@@ -9,24 +9,40 @@ use crate::{
     account::Account,
     cli::BackendArg,
     config::{AccountConfig, Config},
-    flags::arg::{FlagsArg, MailboxFlag, MessageIdsArg},
+    flags::arg::MessageIdsArg,
 };
 
 #[cfg(any(feature = "imap", feature = "jmap"))]
 const READ_BUFFER_SIZE: usize = 16 * 1024;
 
-/// Remove flag(s) from message(s) for the active account.
+/// Move message(s) from one mailbox to another within the active
+/// account.
+///
+/// IMAP uses `UID MOVE` (RFC 6851); JMAP uses `Email/set` patches that
+/// remove the source and add the destination from each email's
+/// `mailboxIds`; Maildir renames the underlying file. Cross-account /
+/// cross-backend move is out of scope.
 #[derive(Debug, Parser)]
-pub struct FlagsDeleteCommand {
+pub struct MessagesMoveCommand {
     #[command(flatten)]
     pub ids: MessageIdsArg,
-    #[command(flatten)]
-    pub flags: FlagsArg,
-    #[command(flatten)]
-    pub mailbox: MailboxFlag,
+
+    /// Source mailbox name or path (IMAP/Maildir). For JMAP this is
+    /// resolved by exact-match name against `Mailbox/get`.
+    #[arg(
+        long = "from",
+        short = 'f',
+        value_name = "NAME",
+        default_value = "Inbox"
+    )]
+    pub from: String,
+
+    /// Destination mailbox name or path. Mandatory.
+    #[arg(long = "to", short = 't', value_name = "NAME")]
+    pub to: String,
 }
 
-impl FlagsDeleteCommand {
+impl MessagesMoveCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,
@@ -37,7 +53,7 @@ impl FlagsDeleteCommand {
         #[cfg(feature = "imap")]
         if backend.allows_imap() {
             if let Some(imap_config) = account_config.imap.take() {
-                use io_email::imap::flag_delete::{FlagDelete, FlagDeleteResult};
+                use io_email::imap::message_move::{MessageMove, MessageMoveResult};
                 use io_imap::types::{mailbox::Mailbox, sequence::SequenceSet};
                 use pimalaya_toolbox::stream::imap::ImapSession;
 
@@ -49,36 +65,35 @@ impl FlagsDeleteCommand {
                     account.backend.sasl.clone().try_into()?,
                 )?;
 
-                let mailbox: Mailbox<'static> = self.mailbox.inner.clone().try_into()?;
+                let from: Mailbox<'static> = self.from.clone().try_into()?;
+                let to: Mailbox<'static> = self.to.clone().try_into()?;
                 let sequence_set: SequenceSet = self.ids.inner.join(",").as_str().try_into()?;
-                let imap_flags = self.flags.inner.iter().map(|f| f.imap()).collect();
-                let mut coroutine =
-                    FlagDelete::new(session.context, mailbox, sequence_set, imap_flags, true);
+                let mut coroutine = MessageMove::new(session.context, from, to, sequence_set, true);
                 let mut buf = [0u8; READ_BUFFER_SIZE];
                 let mut arg: Option<&[u8]> = None;
 
                 loop {
                     match coroutine.resume(arg.take()) {
-                        FlagDeleteResult::Ok => break,
-                        FlagDeleteResult::WantsRead => {
+                        MessageMoveResult::Ok => break,
+                        MessageMoveResult::WantsRead => {
                             let n = session.stream.read(&mut buf)?;
                             arg = Some(&buf[..n]);
                         }
-                        FlagDeleteResult::WantsWrite(bytes) => {
+                        MessageMoveResult::WantsWrite(bytes) => {
                             session.stream.write_all(&bytes)?;
                         }
-                        FlagDeleteResult::Err(err) => bail!("{err}"),
+                        MessageMoveResult::Err(err) => bail!("{err}"),
                     }
                 }
 
-                return printer.out(Message::new("Flag(s) successfully removed"));
+                return printer.out(Message::new("Message(s) successfully moved"));
             }
         }
 
         #[cfg(feature = "jmap")]
         if backend.allows_jmap() {
             if let Some(jmap_config) = account_config.jmap.take() {
-                use io_email::jmap::flag_delete::{FlagDelete, FlagDeleteResult};
+                use io_email::jmap::message_move::{MessageMove, MessageMoveResult};
                 use pimalaya_toolbox::stream::jmap::JmapSession;
 
                 let account = Account::new(config, account_config, jmap_config)?;
@@ -88,107 +103,72 @@ impl FlagsDeleteCommand {
                     account.backend.auth.clone().try_into()?,
                 )?;
 
-                let keywords: Vec<String> = self
-                    .flags
-                    .inner
-                    .iter()
-                    .map(|f| f.jmap().to_owned())
-                    .collect();
-                let mut coroutine = FlagDelete::new(
+                let mut coroutine = MessageMove::new(
                     &session.session,
                     &session.http_auth,
                     self.ids.inner.iter().cloned(),
-                    keywords,
+                    &self.from,
+                    &self.to,
                 )?;
                 let mut buf = [0u8; READ_BUFFER_SIZE];
                 let mut arg: Option<&[u8]> = None;
 
                 loop {
                     match coroutine.resume(arg.take()) {
-                        FlagDeleteResult::Ok => break,
-                        FlagDeleteResult::WantsRead => {
+                        MessageMoveResult::Ok => break,
+                        MessageMoveResult::WantsRead => {
                             let n = session.stream.read(&mut buf)?;
                             arg = Some(&buf[..n]);
                         }
-                        FlagDeleteResult::WantsWrite(bytes) => {
+                        MessageMoveResult::WantsWrite(bytes) => {
                             session.stream.write_all(&bytes)?;
                         }
-                        FlagDeleteResult::Err(err) => bail!("{err}"),
+                        MessageMoveResult::Err(err) => bail!("{err}"),
                     }
                 }
 
-                return printer.out(Message::new("Flag(s) successfully removed"));
+                return printer.out(Message::new("Message(s) successfully moved"));
             }
         }
 
         #[cfg(feature = "maildir")]
         if backend.allows_maildir() {
             if let Some(maildir_config) = account_config.maildir.take() {
-                use io_email::maildir::flag_delete::{FlagDelete, FlagDeleteArg, FlagDeleteResult};
-                use io_maildir::{
-                    flag::{Flag, Flags},
-                    maildir::Maildir,
+                use io_email::maildir::message_move::{
+                    MessageMove, MessageMoveArg, MessageMoveResult,
                 };
+                use io_maildir::maildir::Maildir;
 
                 use crate::maildir::runtime;
 
                 let account = Account::new(config, account_config, maildir_config)?;
-                let path = account.backend.root.join(&self.mailbox.inner);
-                let maildir = Maildir::try_from(path)?;
-                let maildir_flags: Flags = self.flags.inner.iter().map(|f| Flag::from(f)).collect();
+                let source = Maildir::try_from(account.backend.root.join(&self.from))?;
+                let target = Maildir::try_from(account.backend.root.join(&self.to))?;
 
                 for id in &self.ids.inner {
                     let mut coroutine =
-                        FlagDelete::new(maildir.clone(), id.as_str(), maildir_flags.clone());
-                    let mut arg: Option<FlagDeleteArg> = None;
+                        MessageMove::new(id.as_str(), source.clone(), target.clone(), None);
+                    let mut arg: Option<MessageMoveArg> = None;
 
                     loop {
                         match coroutine.resume(arg.take()) {
-                            FlagDeleteResult::Ok => break,
-                            FlagDeleteResult::WantsDirRead(paths) => {
-                                arg = Some(FlagDeleteArg::DirRead(read_dirs(&paths)?));
+                            MessageMoveResult::Ok => break,
+                            MessageMoveResult::WantsDirRead(paths) => {
+                                arg = Some(MessageMoveArg::DirRead(runtime::dir_read(paths)?));
                             }
-                            FlagDeleteResult::WantsRename(pairs) => {
+                            MessageMoveResult::WantsRename(pairs) => {
                                 runtime::rename(pairs)?;
-                                arg = Some(FlagDeleteArg::Rename);
+                                arg = Some(MessageMoveArg::Rename);
                             }
-                            FlagDeleteResult::Err(err) => bail!("{err}"),
+                            MessageMoveResult::Err(err) => bail!("{err}"),
                         }
                     }
                 }
 
-                return printer.out(Message::new("Flag(s) successfully removed"));
+                return printer.out(Message::new("Message(s) successfully moved"));
             }
         }
 
         bail!("no backend matching `{backend}` is configured for this account")
     }
-}
-
-#[cfg(feature = "maildir")]
-fn read_dirs(
-    paths: &std::collections::BTreeSet<String>,
-) -> Result<std::collections::BTreeMap<String, std::collections::BTreeSet<String>>> {
-    use std::{
-        collections::{BTreeMap, BTreeSet},
-        fs,
-    };
-
-    let mut out = BTreeMap::new();
-
-    for path in paths {
-        let mut entries = BTreeSet::new();
-
-        for entry in fs::read_dir(path)? {
-            let entry = entry?;
-
-            if let Some(s) = entry.path().to_str() {
-                entries.insert(s.to_owned());
-            }
-        }
-
-        out.insert(path.clone(), entries);
-    }
-
-    Ok(out)
 }

@@ -2,19 +2,30 @@ use anyhow::Result;
 use clap::Subcommand;
 use pimalaya_toolbox::terminal::printer::Printer;
 
-use crate::config::{AccountConfig, Config};
-#[cfg(any(feature = "imap", feature = "maildir"))]
-use crate::messages::get::MessagesGetCommand;
-#[cfg(feature = "smtp")]
-use crate::messages::send::MessagesSendCommand;
+use crate::{
+    cli::BackendArg,
+    config::{AccountConfig, Config},
+    messages::{
+        add::MessagesAddCommand, compose::MessagesComposeCommand, copy::MessagesCopyCommand,
+        get::MessagesGetCommand, mv::MessagesMoveCommand, send::MessagesSendCommand,
+    },
+};
 
 /// Manage messages through whichever backend the active account has
 /// configured.
+///
+/// The active backend is selected by `--backend` (defaults to `auto`,
+/// which picks the first configured backend in priority order). Note
+/// that `messages send` only has SMTP and JMAP arms; the others have
+/// IMAP, JMAP and Maildir arms.
 #[derive(Debug, Subcommand)]
 pub enum MessagesCommand {
-    #[cfg(any(feature = "imap", feature = "maildir"))]
+    Add(MessagesAddCommand),
+    Compose(MessagesComposeCommand),
+    Copy(MessagesCopyCommand),
     Get(MessagesGetCommand),
-    #[cfg(feature = "smtp")]
+    #[command(name = "move")]
+    Move(MessagesMoveCommand),
     Send(MessagesSendCommand),
 }
 
@@ -23,14 +34,16 @@ impl MessagesCommand {
         self,
         printer: &mut impl Printer,
         config: Config,
-        account_name: String,
         account_config: AccountConfig,
+        backend: BackendArg,
     ) -> Result<()> {
         match self {
-            #[cfg(any(feature = "imap", feature = "maildir"))]
-            Self::Get(cmd) => cmd.execute(printer, config, account_name, account_config),
-            #[cfg(feature = "smtp")]
-            Self::Send(cmd) => cmd.execute(printer, config, account_name, account_config),
+            Self::Add(cmd) => cmd.execute(printer, config, account_config, backend),
+            Self::Compose(cmd) => cmd.execute(printer, config, account_config, backend),
+            Self::Copy(cmd) => cmd.execute(printer, config, account_config, backend),
+            Self::Get(cmd) => cmd.execute(printer, config, account_config, backend),
+            Self::Move(cmd) => cmd.execute(printer, config, account_config, backend),
+            Self::Send(cmd) => cmd.execute(printer, config, account_config, backend),
         }
     }
 }

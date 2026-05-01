@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use clap::Parser;
 use io_maildir::{
-    coroutines::message_copy::{MaildirMessageCopy, MaildirMessageCopyArg, MaildirMessageCopyResult},
+    coroutines::message_copy::{
+        MaildirMessageCopy, MaildirMessageCopyArg, MaildirMessageCopyResult,
+    },
     maildir::Maildir,
 };
 use pimalaya_toolbox::terminal::printer::{Message, Printer};
@@ -61,7 +63,7 @@ impl MaildirMessageCopyCommand {
                         runtime::copy(pairs)?;
                         arg = Some(MaildirMessageCopyArg::Copy);
                     }
-                    MaildirMessageCopyResult::Err(err) => bail!(err),
+                    MaildirMessageCopyResult::Err(err) => bail!("{err}"),
                 }
             }
         }

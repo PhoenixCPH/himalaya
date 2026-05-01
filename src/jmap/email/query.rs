@@ -168,7 +168,7 @@ impl JmapEmailQueryCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailQueryResult::Err(err) => bail!(err),
+                JmapEmailQueryResult::Err(err) => bail!("{err}"),
             }
         };
 

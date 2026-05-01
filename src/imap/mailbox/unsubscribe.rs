@@ -39,7 +39,7 @@ impl ImapMailboxUnsubscribeCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxUnsubscribeResult::Err { err, .. } => bail!(err),
+                ImapMailboxUnsubscribeResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

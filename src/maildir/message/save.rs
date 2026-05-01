@@ -85,7 +85,7 @@ impl MaildirMessageSaveCommand {
                     runtime::rename(pairs)?;
                     arg = Some(MaildirMessageStoreArg::Rename);
                 }
-                MaildirMessageStoreResult::Err(err) => bail!(err),
+                MaildirMessageStoreResult::Err(err) => bail!("{err}"),
             }
         };
 

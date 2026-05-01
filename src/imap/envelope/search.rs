@@ -87,7 +87,7 @@ impl ImapEnvelopeSearchCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -108,7 +108,7 @@ impl ImapEnvelopeSearchCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageSearchResult::Err { err, .. } => bail!(err),
+                ImapMessageSearchResult::Err { err, .. } => bail!("{err}"),
             }
         };
 

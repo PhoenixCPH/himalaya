@@ -31,7 +31,7 @@ impl MaildirMailboxListCommand {
                 MaildirListResult::WantsDirRead(paths) => {
                     arg = Some(MaildirListArg::DirRead(runtime::dir_read(paths)?));
                 }
-                MaildirListResult::Err(err) => bail!(err),
+                MaildirListResult::Err(err) => bail!("{err}"),
             }
         };
 

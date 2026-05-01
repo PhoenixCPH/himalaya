@@ -42,7 +42,7 @@ impl JmapMailboxGetCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapMailboxGetResult::Err(err) => bail!(err),
+                JmapMailboxGetResult::Err(err) => bail!("{err}"),
             }
         };
 

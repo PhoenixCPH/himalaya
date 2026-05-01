@@ -63,7 +63,7 @@ impl ImapFlagAddCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -95,7 +95,7 @@ impl ImapFlagAddCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageStoreSilentResult::Err { err, .. } => bail!(err),
+                ImapMessageStoreSilentResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

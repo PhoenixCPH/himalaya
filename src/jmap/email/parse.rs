@@ -47,7 +47,7 @@ impl JmapEmailParseCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailParseResult::Err(err) => bail!(err),
+                JmapEmailParseResult::Err(err) => bail!("{err}"),
             }
         };
 

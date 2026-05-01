@@ -74,7 +74,7 @@ impl JmapEmailCopyCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailCopyResult::Err(err) => bail!(err),
+                JmapEmailCopyResult::Err(err) => bail!("{err}"),
             }
         };
 

@@ -61,7 +61,7 @@ impl JmapIdentityUpdateCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapIdentitySetResult::Err(err) => bail!(err),
+                JmapIdentitySetResult::Err(err) => bail!("{err}"),
             }
         };
 

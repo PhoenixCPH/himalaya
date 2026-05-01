@@ -44,7 +44,7 @@ impl JmapSubmissionGetCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailSubmissionGetResult::Err(err) => bail!(err),
+                JmapEmailSubmissionGetResult::Err(err) => bail!("{err}"),
             }
         };
 

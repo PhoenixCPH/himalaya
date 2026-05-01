@@ -54,7 +54,7 @@ impl ImapMailboxStatusCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxStatusResult::Err { err, .. } => bail!(err),
+                ImapMailboxStatusResult::Err { err, .. } => bail!("{err}"),
             }
         };
 

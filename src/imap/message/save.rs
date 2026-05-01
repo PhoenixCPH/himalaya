@@ -76,7 +76,7 @@ impl ImapMessageSaveCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageAppendResult::Err { err, .. } => bail!(err),
+                ImapMessageAppendResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

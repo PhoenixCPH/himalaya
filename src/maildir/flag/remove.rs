@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use clap::Parser;
 use io_maildir::{
-    coroutines::flags_remove::{MaildirFlagsRemove, MaildirFlagsRemoveArg, MaildirFlagsRemoveResult},
+    coroutines::flags_remove::{
+        MaildirFlagsRemove, MaildirFlagsRemoveArg, MaildirFlagsRemoveResult,
+    },
     flag::Flags,
     maildir::Maildir,
 };
@@ -53,7 +55,7 @@ impl MaildirFlagRemoveCommand {
                         runtime::rename(pairs)?;
                         arg = Some(MaildirFlagsRemoveArg::Rename);
                     }
-                    MaildirFlagsRemoveResult::Err(err) => bail!(err),
+                    MaildirFlagsRemoveResult::Err(err) => bail!("{err}"),
                 }
             }
         }

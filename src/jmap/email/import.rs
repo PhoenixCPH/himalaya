@@ -95,7 +95,7 @@ impl JmapEmailImportCommand {
                     stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapBlobUploadResult::Err(err) => bail!(err),
+                JmapBlobUploadResult::Err(err) => bail!("{err}"),
             }
         };
 
@@ -136,7 +136,7 @@ impl JmapEmailImportCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailImportResult::Err(err) => bail!(err),
+                JmapEmailImportResult::Err(err) => bail!("{err}"),
             }
         };
 

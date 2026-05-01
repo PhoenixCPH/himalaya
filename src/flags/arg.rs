@@ -71,13 +71,11 @@ pub struct FlagsArg {
 #[derive(Debug, Parser)]
 pub struct MailboxFlag {
     /// Mailbox name or path (IMAP mailbox / Maildir path).
-    #[arg(long = "mailbox", short = 'm', value_name = "NAME", default_value = "Inbox")]
+    #[arg(
+        long = "mailbox",
+        short = 'm',
+        value_name = "NAME",
+        default_value = "Inbox"
+    )]
     pub inner: String,
-}
-
-#[derive(Debug, Parser)]
-pub struct SequenceFlag {
-    /// Treat IDs as IMAP sequence numbers instead of UIDs.
-    #[arg(long, visible_alias = "seq")]
-    pub sequence: bool,
 }

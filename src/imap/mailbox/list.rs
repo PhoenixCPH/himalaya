@@ -60,7 +60,7 @@ impl ImapMailboxListCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxListResult::Err { err, .. } => bail!(err),
+                    ImapMailboxListResult::Err { err, .. } => bail!("{err}"),
                 }
             }
         } else {
@@ -78,7 +78,7 @@ impl ImapMailboxListCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxLsubResult::Err { err, .. } => bail!(err),
+                    ImapMailboxLsubResult::Err { err, .. } => bail!("{err}"),
                 }
             }
         };

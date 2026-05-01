@@ -46,7 +46,7 @@ impl ImapMailboxExpungeCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -65,7 +65,7 @@ impl ImapMailboxExpungeCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxExpungeResult::Err { err, .. } => bail!(err),
+                ImapMailboxExpungeResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

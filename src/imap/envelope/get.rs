@@ -67,7 +67,7 @@ impl ImapEnvelopeGetCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -93,7 +93,7 @@ impl ImapEnvelopeGetCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageFetchFirstResult::Err { err, .. } => bail!(err),
+                ImapMessageFetchFirstResult::Err { err, .. } => bail!("{err}"),
             }
         };
 

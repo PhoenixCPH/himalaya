@@ -39,7 +39,7 @@ impl ImapMailboxSubscribeCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxSubscribeResult::Err { err, .. } => bail!(err),
+                ImapMailboxSubscribeResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

@@ -49,7 +49,7 @@ impl JmapThreadGetCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapThreadGetResult::Err(err) => bail!(err),
+                JmapThreadGetResult::Err(err) => bail!("{err}"),
             }
         };
 

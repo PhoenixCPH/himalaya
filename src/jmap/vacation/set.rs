@@ -89,7 +89,7 @@ impl JmapVacationSetCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapVacationResponseSetResult::Err(err) => bail!(err),
+                JmapVacationResponseSetResult::Err(err) => bail!("{err}"),
             }
         }
 

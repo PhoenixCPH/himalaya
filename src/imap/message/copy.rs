@@ -59,7 +59,7 @@ impl ImapMessageCopyCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -82,7 +82,7 @@ impl ImapMessageCopyCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageCopyResult::Err { err, .. } => bail!(err),
+                ImapMessageCopyResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

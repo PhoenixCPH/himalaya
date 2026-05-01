@@ -44,7 +44,7 @@ impl ImapMailboxRenameCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxRenameResult::Err { err, .. } => bail!(err),
+                ImapMailboxRenameResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

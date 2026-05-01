@@ -1,30 +1,23 @@
-use std::{
-    borrow::Cow,
-    collections::HashSet,
-    io::{stdin, BufRead, IsTerminal, Read, Write},
-};
+use std::io::{stdin, BufRead, IsTerminal};
+#[cfg(any(feature = "smtp", feature = "jmap"))]
+use std::io::{Read, Write};
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use io_email::coroutines::message_send::{MessageSend, MessageSendArg, MessageSendResult};
-use io_smtp::{
-    rfc5321::types::{
-        domain::Domain, ehlo_domain::EhloDomain, forward_path::ForwardPath, local_part::LocalPart,
-        mailbox::Mailbox, reverse_path::ReversePath,
-    },
-    send::SmtpMessageSend,
-};
-use mail_parser::{Addr, Address, HeaderName, HeaderValue, MessageParser};
 use pimalaya_toolbox::terminal::printer::{Message, Printer};
 
 use crate::{
-    account::Account,
+    cli::BackendArg,
     config::{AccountConfig, Config},
 };
 
-const READ_BUFFER_SIZE: usize = 8 * 1024;
+#[cfg(any(feature = "smtp", feature = "jmap"))]
+const READ_BUFFER_SIZE: usize = 16 * 1024;
 
-/// Send a message via SMTP for the active account.
+/// Send a message via the active account.
+///
+/// Supported over SMTP and JMAP. JMAP requires `identity-id` and
+/// `drafts-mailbox-id` to be set on the account's `[jmap]` config block.
 #[derive(Debug, Parser)]
 pub struct MessagesSendCommand {
     /// The raw message, including headers and body.
@@ -38,23 +31,9 @@ impl MessagesSendCommand {
         self,
         printer: &mut impl Printer,
         config: Config,
-        account_name: String,
         mut account_config: AccountConfig,
+        backend: BackendArg,
     ) -> Result<()> {
-        let _ = account_name;
-
-        let Some(smtp_config) = account_config.smtp.take() else {
-            bail!("no SMTP backend configured for this account")
-        };
-
-        let account = Account::new(config, account_config, smtp_config)?;
-        let mut smtp = pimalaya_toolbox::stream::smtp::SmtpSession::new(
-            account.backend.url.clone(),
-            account.backend.tls.clone().try_into()?,
-            account.backend.starttls,
-            account.backend.sasl.clone().try_into()?,
-        )?;
-
         let raw = if stdin().is_terminal() || printer.is_json() {
             self.message
                 .join(" ")
@@ -69,33 +48,117 @@ impl MessagesSendCommand {
                 .join("\r\n")
         };
 
-        let (reverse_path, forward_paths) = into_smtp_msg(raw.as_bytes())?;
+        #[cfg(feature = "smtp")]
+        if backend.allows_smtp() {
+            if let Some(smtp_config) = account_config.smtp.take() {
+                use io_email::smtp::message_send::{MessageSend, MessageSendResult};
+                use pimalaya_toolbox::stream::smtp::SmtpSession;
 
-        let inner = SmtpMessageSend::new(reverse_path, forward_paths, raw.into_bytes());
-        let mut coroutine = MessageSend::new(inner);
-        let mut buf = [0u8; READ_BUFFER_SIZE];
-        let mut arg: Option<MessageSendArg<'_>> = None;
+                let account = crate::account::Account::new(config, account_config, smtp_config)?;
+                let mut session = SmtpSession::new(
+                    account.backend.url.clone(),
+                    account.backend.tls.clone().try_into()?,
+                    account.backend.starttls,
+                    account.backend.sasl.clone().try_into()?,
+                )?;
 
-        loop {
-            match coroutine.resume(arg.take()) {
-                MessageSendResult::Ok => break,
-                MessageSendResult::WantsBytesRead => {
-                    let n = smtp.stream.read(&mut buf)?;
-                    arg = Some(MessageSendArg::Bytes(&buf[..n]));
+                let (reverse_path, forward_paths) = parse_envelope(raw.as_bytes())?;
+                let mut coroutine = MessageSend::new(reverse_path, forward_paths, raw.into_bytes());
+                let mut buf = [0u8; READ_BUFFER_SIZE];
+                let mut arg: Option<&[u8]> = None;
+
+                loop {
+                    match coroutine.resume(arg.take()) {
+                        MessageSendResult::Ok => break,
+                        MessageSendResult::WantsRead => {
+                            let n = session.stream.read(&mut buf)?;
+                            arg = Some(&buf[..n]);
+                        }
+                        MessageSendResult::WantsWrite(bytes) => {
+                            session.stream.write_all(&bytes)?;
+                        }
+                        MessageSendResult::Err(err) => bail!("{err}"),
+                    }
                 }
-                MessageSendResult::WantsBytesWrite(bytes) => {
-                    smtp.stream.write_all(&bytes)?;
-                    arg = None;
-                }
-                MessageSendResult::Err(err) => bail!(err),
+
+                return printer.out(Message::new("Message successfully sent"));
             }
         }
 
-        printer.out(Message::new("Message successfully sent"))
+        #[cfg(feature = "jmap")]
+        if backend.allows_jmap() {
+            if let Some(jmap_config) = account_config.jmap.take() {
+                use io_email::jmap::message_send::{MessageSend, MessageSendResult};
+                use pimalaya_toolbox::stream::jmap::JmapSession;
+
+                let identity_id = jmap_config.identity_id.clone().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "JMAP send requires `identity-id` in the [jmap] config; \
+                         run `himalaya jmap identity get` to find one"
+                    )
+                })?;
+                let drafts_mailbox_id = jmap_config.drafts_mailbox_id.clone().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "JMAP send requires `drafts-mailbox-id` in the [jmap] config; \
+                         run `himalaya jmap mailbox query --role drafts` to find one"
+                    )
+                })?;
+                let account = crate::account::Account::new(config, account_config, jmap_config)?;
+                let mut session = JmapSession::new(
+                    account.backend.server.clone(),
+                    account.backend.tls.clone().try_into()?,
+                    account.backend.auth.clone().try_into()?,
+                )?;
+
+                let mut coroutine = MessageSend::new(
+                    &session.session,
+                    &session.http_auth,
+                    raw.into_bytes(),
+                    identity_id,
+                    drafts_mailbox_id,
+                )?;
+                let mut buf = [0u8; READ_BUFFER_SIZE];
+                let mut arg: Option<&[u8]> = None;
+
+                loop {
+                    match coroutine.resume(arg.take()) {
+                        MessageSendResult::Ok => break,
+                        MessageSendResult::WantsRead => {
+                            let n = session.stream.read(&mut buf)?;
+                            arg = Some(&buf[..n]);
+                        }
+                        MessageSendResult::WantsWrite(bytes) => {
+                            session.stream.write_all(&bytes)?;
+                        }
+                        MessageSendResult::Err(err) => bail!("{err}"),
+                    }
+                }
+
+                return printer.out(Message::new("Message successfully sent"));
+            }
+        }
+
+        let _ = config;
+        let _ = raw;
+        bail!("no backend matching `{backend}` is configured for this account")
     }
 }
 
-fn into_smtp_msg<'a>(msg: &[u8]) -> Result<(ReversePath<'a>, Vec<ForwardPath<'a>>)> {
+#[cfg(feature = "smtp")]
+pub(crate) fn parse_envelope<'a>(
+    msg: &[u8],
+) -> Result<(
+    io_smtp::rfc5321::types::reverse_path::ReversePath<'a>,
+    Vec<io_smtp::rfc5321::types::forward_path::ForwardPath<'a>>,
+)> {
+    use std::{borrow::Cow, collections::HashSet};
+
+    use io_smtp::rfc5321::types::{
+        domain::Domain, ehlo_domain::EhloDomain, forward_path::ForwardPath, local_part::LocalPart,
+        mailbox::Mailbox, reverse_path::ReversePath,
+    };
+    use mail_parser::{Address, HeaderName, HeaderValue, MessageParser};
+
     let Some(parsed) = MessageParser::new().parse_headers(msg) else {
         bail!("Invalid message to send")
     };
@@ -178,7 +241,8 @@ fn into_smtp_msg<'a>(msg: &[u8]) -> Result<(ReversePath<'a>, Vec<ForwardPath<'a>
     Ok((reverse_path, forward_paths))
 }
 
-fn find_valid_email(addr: &Addr) -> Option<String> {
+#[cfg(feature = "smtp")]
+fn find_valid_email(addr: &mail_parser::Addr) -> Option<String> {
     match &addr.address {
         None => None,
         Some(email) => {

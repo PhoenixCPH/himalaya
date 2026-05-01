@@ -52,7 +52,7 @@ impl JmapIdentityGetCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapIdentityGetResult::Err(err) => bail!(err),
+                JmapIdentityGetResult::Err(err) => bail!("{err}"),
             }
         };
 

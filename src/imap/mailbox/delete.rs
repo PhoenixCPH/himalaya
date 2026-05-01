@@ -39,7 +39,7 @@ impl ImapMailboxDeleteCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxDeleteResult::Err { err, .. } => bail!(err),
+                ImapMailboxDeleteResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

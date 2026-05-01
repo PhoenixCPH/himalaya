@@ -44,7 +44,7 @@ impl MaildirEnvelopeListCommand {
                 MaildirMessagesListResult::WantsFileRead(paths) => {
                     arg = Some(MaildirMessagesListArg::FileRead(runtime::file_read(paths)?));
                 }
-                MaildirMessagesListResult::Err(err) => bail!(err),
+                MaildirMessagesListResult::Err(err) => bail!("{err}"),
             }
         };
 

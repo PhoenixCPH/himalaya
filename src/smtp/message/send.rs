@@ -67,7 +67,7 @@ impl SmtpMessageSendCommand {
                     smtp.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                SmtpMessageSendResult::Err(err) => bail!(err),
+                SmtpMessageSendResult::Err(err) => bail!("{err}"),
             }
         }
 

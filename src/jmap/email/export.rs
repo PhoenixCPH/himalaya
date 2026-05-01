@@ -56,7 +56,7 @@ impl JmapEmailExportCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailGetResult::Err(err) => bail!(err),
+                JmapEmailGetResult::Err(err) => bail!("{err}"),
             }
         };
 
@@ -104,7 +104,7 @@ impl JmapEmailExportCommand {
                     coroutine = JmapBlobDownload::new(&jmap.http_auth, &url);
                     arg = None;
                 }
-                JmapBlobDownloadResult::Err(err) => bail!(err),
+                JmapBlobDownloadResult::Err(err) => bail!("{err}"),
             }
         };
 

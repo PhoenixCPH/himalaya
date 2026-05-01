@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
 use clap::Parser;
-use io_maildir::coroutines::maildir_rename::{MaildirRename, MaildirRenameArg, MaildirRenameResult};
+use io_maildir::coroutines::maildir_rename::{
+    MaildirRename, MaildirRenameArg, MaildirRenameResult,
+};
 use pimalaya_toolbox::terminal::printer::{Message, Printer};
 
 use crate::maildir::{
@@ -35,7 +37,7 @@ impl MaildirMailboxRenameCommand {
                     runtime::rename(pairs)?;
                     arg = Some(MaildirRenameArg::Rename);
                 }
-                MaildirRenameResult::Err(err) => bail!(err),
+                MaildirRenameResult::Err(err) => bail!("{err}"),
             }
         }
 

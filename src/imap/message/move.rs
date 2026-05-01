@@ -57,7 +57,7 @@ impl ImapMessageMoveCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             };
         }
@@ -80,7 +80,7 @@ impl ImapMessageMoveCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageMoveResult::Err { err, .. } => bail!(err),
+                ImapMessageMoveResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

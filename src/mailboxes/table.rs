@@ -1,7 +1,7 @@
 use std::fmt;
 
 use comfy_table::{Cell, ContentArrangement, Row, Table};
-use io_email::Mailbox;
+use io_email::mailbox::Mailbox;
 use serde::Serialize;
 
 #[derive(Clone, Debug, Serialize)]

@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
 use clap::Parser;
-use io_maildir::coroutines::maildir_create::{MaildirCreate, MaildirCreateArg, MaildirCreateResult};
+use io_maildir::coroutines::maildir_create::{
+    MaildirCreate, MaildirCreateArg, MaildirCreateResult,
+};
 use pimalaya_toolbox::terminal::printer::{Message, Printer};
 
 use crate::maildir::{account::MaildirAccount, arg::MaildirNameArg, runtime};
@@ -29,7 +31,7 @@ impl MaildirMailboxCreateCommand {
                     runtime::dir_create(paths)?;
                     arg = Some(MaildirCreateArg::DirCreate);
                 }
-                MaildirCreateResult::Err(err) => bail!(err),
+                MaildirCreateResult::Err(err) => bail!("{err}"),
             }
         }
 

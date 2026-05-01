@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use clap::Parser;
 use io_maildir::{
-    coroutines::message_move::{MaildirMessageMove, MaildirMessageMoveArg, MaildirMessageMoveResult},
+    coroutines::message_move::{
+        MaildirMessageMove, MaildirMessageMoveArg, MaildirMessageMoveResult,
+    },
     maildir::Maildir,
 };
 use pimalaya_toolbox::terminal::printer::{Message, Printer};
@@ -61,7 +63,7 @@ impl MaildirMessageMoveCommand {
                         runtime::rename(pairs)?;
                         arg = Some(MaildirMessageMoveArg::Rename);
                     }
-                    MaildirMessageMoveResult::Err(err) => bail!(err),
+                    MaildirMessageMoveResult::Err(err) => bail!("{err}"),
                 }
             }
         }

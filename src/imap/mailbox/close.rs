@@ -40,7 +40,7 @@ impl ImapMailboxCloseCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxCloseResult::Err { err, .. } => bail!(err),
+                ImapMailboxCloseResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

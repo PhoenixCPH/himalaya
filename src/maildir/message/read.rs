@@ -54,7 +54,7 @@ impl MaildirMessageReadCommand {
                 MaildirMessageGetResult::WantsFileRead(paths) => {
                     arg = Some(MaildirMessageGetArg::FileRead(runtime::file_read(paths)?));
                 }
-                MaildirMessageGetResult::Err(err) => bail!(err),
+                MaildirMessageGetResult::Err(err) => bail!("{err}"),
             }
         };
 

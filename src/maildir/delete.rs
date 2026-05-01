@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
 use clap::Parser;
-use io_maildir::coroutines::maildir_delete::{MaildirDelete, MaildirDeleteArg, MaildirDeleteResult};
+use io_maildir::coroutines::maildir_delete::{
+    MaildirDelete, MaildirDeleteArg, MaildirDeleteResult,
+};
 use pimalaya_toolbox::terminal::printer::{Message, Printer};
 
 use crate::maildir::{account::MaildirAccount, arg::MaildirPathFlag, runtime};
@@ -29,7 +31,7 @@ impl MaildirMailboxDeleteCommand {
                     runtime::dir_remove(paths)?;
                     arg = Some(MaildirDeleteArg::DirRemove);
                 }
-                MaildirDeleteResult::Err(err) => bail!(err),
+                MaildirDeleteResult::Err(err) => bail!("{err}"),
             }
         }
 

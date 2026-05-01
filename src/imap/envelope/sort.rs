@@ -81,7 +81,7 @@ impl ImapEnvelopeSortCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
             }
         };
 
@@ -111,7 +111,7 @@ impl ImapEnvelopeSortCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxSortResult::Err { err, .. } => bail!(err),
+                ImapMailboxSortResult::Err { err, .. } => bail!("{err}"),
             }
         };
 

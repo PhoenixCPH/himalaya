@@ -53,7 +53,7 @@ impl MaildirFlagSetCommand {
                         runtime::rename(pairs)?;
                         arg = Some(MaildirFlagsSetArg::Rename);
                     }
-                    MaildirFlagsSetResult::Err(err) => bail!(err),
+                    MaildirFlagsSetResult::Err(err) => bail!("{err}"),
                 }
             }
         }

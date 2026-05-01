@@ -88,7 +88,7 @@ impl ImapEnvelopeListCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxStatusResult::Err { err, .. } => bail!(err),
+                    ImapMailboxStatusResult::Err { err, .. } => bail!("{err}"),
                 }
             }
         } else {
@@ -109,7 +109,7 @@ impl ImapEnvelopeListCommand {
                         imap.stream.write_all(&bytes)?;
                         arg = None;
                     }
-                    ImapMailboxSelectResult::Err { err, .. } => bail!(err),
+                    ImapMailboxSelectResult::Err { err, .. } => bail!("{err}"),
                 }
             }
         };
@@ -150,7 +150,7 @@ impl ImapEnvelopeListCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMessageFetchResult::Err { err, .. } => bail!(err),
+                ImapMessageFetchResult::Err { err, .. } => bail!("{err}"),
             }
         };
 

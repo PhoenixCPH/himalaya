@@ -40,7 +40,7 @@ impl ImapMailboxCreateCommand {
                     imap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                ImapMailboxCreateResult::Err { err, .. } => bail!(err),
+                ImapMailboxCreateResult::Err { err, .. } => bail!("{err}"),
             }
         }
 

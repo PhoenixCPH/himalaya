@@ -42,7 +42,7 @@ impl JmapEmailDestroyCommand {
                     jmap.stream.write_all(&bytes)?;
                     arg = None;
                 }
-                JmapEmailSetResult::Err(err) => bail!(err),
+                JmapEmailSetResult::Err(err) => bail!("{err}"),
             }
         };
 
