@@ -5,6 +5,8 @@ use anyhow::Result;
 use comfy_table::{presets, ContentArrangement};
 use dirs::download_dir;
 
+const DEFAULT_DATETIME_FMT: &str = "%F %R%:z";
+
 #[derive(Clone, Debug)]
 pub struct Account<B: Clone> {
     pub backend: B,
@@ -12,6 +14,9 @@ pub struct Account<B: Clone> {
 
     pub table_preset: String,
     pub table_arrangement: ContentArrangement,
+
+    pub datetime_fmt: String,
+    pub datetime_local_tz: bool,
 }
 
 impl<B: Clone> Account<B> {
@@ -43,6 +48,19 @@ impl<B: Clone> Account<B> {
                 .or(account_config.table_arrangement)
                 .unwrap_or_default()
                 .into(),
+
+            datetime_fmt: config
+                .envelope
+                .list
+                .datetime_fmt
+                .or(account_config.envelope.list.datetime_fmt)
+                .unwrap_or_else(|| DEFAULT_DATETIME_FMT.to_string()),
+            datetime_local_tz: config
+                .envelope
+                .list
+                .datetime_local_tz
+                .or(account_config.envelope.list.datetime_local_tz)
+                .unwrap_or(false),
         })
     }
 }

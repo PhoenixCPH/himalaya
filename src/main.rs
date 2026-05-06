@@ -2,8 +2,8 @@ mod account;
 #[cfg(any(feature = "imap", feature = "jmap", feature = "maildir"))]
 mod attachments;
 mod cli;
+mod client;
 mod config;
-mod email_client;
 mod envelopes;
 mod flags;
 #[cfg(feature = "imap")]
@@ -29,13 +29,10 @@ fn main() {
     Logger::init(&cli.log);
 
     let mut printer = StdoutPrinter::new(&cli.json);
-    let config_paths = cli.config_paths.as_ref();
-    let account_name = cli.account.name.as_deref();
+    let config = cli.config_paths.as_ref();
+    let account = cli.account.name.as_deref();
     let backend = cli.backend;
-
-    let result = cli
-        .command
-        .execute(&mut printer, config_paths, account_name, backend);
+    let result = cli.command.execute(&mut printer, config, account, backend);
 
     ErrorReport::eval(&mut printer, result)
 }

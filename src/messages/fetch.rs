@@ -10,8 +10,8 @@ use anyhow::Result;
 
 use crate::{
     cli::BackendArg,
+    client::EmailClient,
     config::{AccountConfig, Config},
-    email_client::build,
 };
 
 /// Fetches the raw RFC 5322 bytes of `id` from `mailbox` via the first
@@ -24,6 +24,6 @@ pub(crate) fn fetch_raw(
     mailbox: &str,
     id: &str,
 ) -> Result<Vec<u8>> {
-    let mut ctx = build(config.clone(), account_config.clone(), backend)?;
-    Ok(ctx.client.get_message(mailbox, id)?)
+    let mut client = EmailClient::new(config.clone(), account_config.clone(), backend)?;
+    Ok(client.get_message(mailbox, id)?)
 }

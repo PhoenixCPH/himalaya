@@ -7,7 +7,7 @@ use crate::imap::{
     id::ImapIdCommand, mailbox::cli::ImapMailboxCommand, message::cli::ImapMessageCommand,
 };
 
-/// IMAP CLI (requires the `imap` cargo feature).
+/// IMAP CLI.
 ///
 /// This command gives you access to the IMAP CLI API, and allows you
 /// to manage IMAP mailboxes, envelopes, flags, messages etc.

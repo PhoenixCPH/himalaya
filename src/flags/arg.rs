@@ -1,12 +1,16 @@
 use clap::{Parser, ValueEnum};
 
+/// Shared CLI flag argument for the cross-protocol `flags` and
+/// `messages add` commands. The variant set is the strict
+/// least-common-denominator across IMAP, JMAP and Maildir; backend
+/// extras (`\Deleted`, Maildir `Trashed`/`Passed`, JMAP custom
+/// keywords) live on the protocol-specific commands.
 #[derive(Clone, Debug, ValueEnum)]
 #[clap(rename_all = "kebab-case")]
 pub enum FlagArg {
     Seen,
     Answered,
     Flagged,
-    Deleted,
     Draft,
 }
 
@@ -19,7 +23,6 @@ impl FlagArg {
             Self::Seen => Flag::Seen,
             Self::Answered => Flag::Answered,
             Self::Flagged => Flag::Flagged,
-            Self::Deleted => Flag::Deleted,
             Self::Draft => Flag::Draft,
         }
     }
@@ -32,7 +35,6 @@ impl FlagArg {
             Self::Seen => "$seen",
             Self::Answered => "$answered",
             Self::Flagged => "$flagged",
-            Self::Deleted => "$deleted",
             Self::Draft => "$draft",
         }
     }
@@ -47,7 +49,6 @@ impl From<&FlagArg> for io_maildir::flag::Flag {
             FlagArg::Seen => Flag::Seen,
             FlagArg::Answered => Flag::Replied,
             FlagArg::Flagged => Flag::Flagged,
-            FlagArg::Deleted => Flag::Trashed,
             FlagArg::Draft => Flag::Draft,
         }
     }
@@ -61,7 +62,6 @@ impl From<&FlagArg> for io_email::flag::Flag {
             FlagArg::Seen => Flag::Seen,
             FlagArg::Answered => Flag::Answered,
             FlagArg::Flagged => Flag::Flagged,
-            FlagArg::Deleted => Flag::Deleted,
             FlagArg::Draft => Flag::Draft,
         }
     }
@@ -69,27 +69,23 @@ impl From<&FlagArg> for io_email::flag::Flag {
 
 #[derive(Debug, Parser)]
 pub struct MessageIdsArg {
-    /// Identifier(s) of message(s) (IMAP UID, JMAP email ID, Maildir filename id).
-    #[arg(name = "message_ids", value_name = "ID")]
+    /// Message Identifier(s).
+    #[arg(name = "message_ids", value_name = "MESSAGE-IDS")]
     #[arg(num_args = 1..)]
     pub inner: Vec<String>,
 }
 
 #[derive(Debug, Parser)]
 pub struct FlagsArg {
-    /// Flag(s) to apply.
+    /// Flag(s) to add on message(s).
+    #[arg(name = "flags", value_name = "FLAG")]
     #[arg(long = "flag", short, required = true, num_args = 1..)]
     pub inner: Vec<FlagArg>,
 }
 
 #[derive(Debug, Parser)]
-pub struct MailboxFlag {
-    /// Mailbox name or path (IMAP mailbox / Maildir path).
-    #[arg(
-        long = "mailbox",
-        short = 'm',
-        value_name = "NAME",
-        default_value = "Inbox"
-    )]
+pub struct MailboxIdArg {
+    /// Mailbox identifier.
+    #[arg(name = "mailbox_id", value_name = "MAILBOX-ID")]
     pub inner: String,
 }

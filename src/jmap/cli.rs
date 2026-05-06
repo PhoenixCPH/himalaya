@@ -9,7 +9,7 @@ use crate::jmap::{
     vacation::cli::JmapVacationCommand,
 };
 
-/// JMAP CLI (requires the `jmap` cargo feature).
+/// JMAP CLI.
 ///
 /// This command gives you access to the JMAP CLI API, and allows you
 /// to manage JMAP mailboxes, threads, emails, identities, submissions

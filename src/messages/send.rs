@@ -19,14 +19,14 @@ const READ_BUFFER_SIZE: usize = 16 * 1024;
 /// Supported over SMTP and JMAP. JMAP requires `identity-id` and
 /// `drafts-mailbox-id` to be set on the account's `[jmap]` config block.
 #[derive(Debug, Parser)]
-pub struct MessagesSendCommand {
+pub struct MessageSendCommand {
     /// The raw message, including headers and body.
     #[arg(trailing_var_arg = true)]
     #[arg(name = "message", value_name = "MESSAGE")]
     pub message: Vec<String>,
 }
 
-impl MessagesSendCommand {
+impl MessageSendCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

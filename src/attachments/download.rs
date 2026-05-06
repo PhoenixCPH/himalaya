@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -12,46 +13,43 @@ use crate::{
     account::Account,
     cli::BackendArg,
     config::{AccountConfig, Config},
+    flags::arg::MailboxIdArg,
 };
 
-/// Download the attachments carried by a single message to disk.
+/// Download specific attachments of a single message to disk.
 ///
-/// "Attachment" follows mail_parser's classification: parts with
-/// `Content-Disposition: attachment`, or any non-body part with a
-/// `filename`/`name` parameter. Inline parts are skipped by default;
-/// pass `--include-inline` to download them too.
+/// The attachment ids are the 1-based positions reported by
+/// `attachments list`. Pass one or more ids to fetch exactly those
+/// parts. Inline parts are addressable by their id too — the id you
+/// see in `attachments list --inline` is the same id you pass here.
 ///
 /// The destination directory defaults to the account's
 /// `downloads-dir` config (falling back to the global one, then the
 /// platform's standard downloads directory). Pass `--dir <PATH>` to
 /// override.
 #[derive(Debug, Parser)]
-pub struct AttachmentsDownloadCommand {
-    /// Identifier of the message (IMAP UID, JMAP email id, or Maildir
-    /// filename id).
-    #[arg(value_name = "ID")]
-    pub id: String,
+pub struct AttachmentDownloadCommand {
+    #[command(flatten)]
+    pub mailbox_id: MailboxIdArg,
 
-    /// Mailbox name or path (IMAP/Maildir). Ignored for JMAP.
-    #[arg(
-        long = "mailbox",
-        short = 'm',
-        value_name = "NAME",
-        default_value = "Inbox"
-    )]
-    pub mailbox: String,
+    /// Identifier of the message.
+    #[arg(value_name = "MESSAGE-ID")]
+    pub message_id: String,
 
-    /// Destination directory. Overrides the account/global
-    /// `downloads-dir` config.
-    #[arg(long = "dir", short = 'd', value_name = "PATH")]
+    /// Attachment identifier(s) to download.
+    ///
+    /// Omit identifiers to download all attachments.
+    #[arg(value_name = "ATTACHMENT-ID", num_args = 0..)]
+    pub attachment_ids: Vec<String>,
+
+    /// Destination directory.
+    ///
+    /// Overrides the account/global `downloads-dir` config.
+    #[arg(long, short, value_name = "PATH")]
     pub dir: Option<PathBuf>,
-
-    /// Include parts with `Content-Disposition: inline`.
-    #[arg(long = "include-inline")]
-    pub include_inline: bool,
 }
 
-impl AttachmentsDownloadCommand {
+impl AttachmentDownloadCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,
@@ -63,8 +61,8 @@ impl AttachmentsDownloadCommand {
             &config,
             &account_config,
             backend,
-            &self.mailbox,
-            &self.id,
+            &self.mailbox_id.inner,
+            &self.message_id,
         )?;
 
         let Some(message) = MessageParser::new().parse(&raw) else {
@@ -78,20 +76,20 @@ impl AttachmentsDownloadCommand {
             fs::create_dir_all(&dir)?;
         }
 
+        let wanted_all = self.attachment_ids.is_empty();
+        let mut remaining: BTreeSet<String> = self.attachment_ids.iter().cloned().collect();
         let mut written = Vec::new();
+
         for (index, part) in message.attachments().enumerate() {
-            let inline = part
-                .content_disposition()
-                .map(|cd| cd.c_type.eq_ignore_ascii_case("inline"))
-                .unwrap_or(false);
-            if inline && !self.include_inline {
+            let id = (index + 1).to_string();
+            if !wanted_all && !remaining.remove(&id) {
                 continue;
             }
 
             let filename = part
                 .attachment_name()
                 .map(str::to_owned)
-                .unwrap_or_else(|| format!("attachment-{index}"));
+                .unwrap_or_else(|| format!("attachment-{id}"));
             let safe = sanitize(&filename);
             let path = unique_path(&dir, &safe);
 
@@ -99,14 +97,19 @@ impl AttachmentsDownloadCommand {
             written.push(path.display().to_string());
         }
 
-        if written.is_empty() {
-            return printer.out(Message::new("No attachments to download"));
+        if !remaining.is_empty() {
+            let missing: Vec<String> = remaining.into_iter().collect();
+            bail!(
+                "no attachment with id {} on message `{}`",
+                missing.join(", "),
+                self.message_id,
+            );
         }
 
         printer.out(Message::new(format!(
-            "Downloaded {} attachment(s):\n  {}",
+            "Downloaded {} attachment(s):\n - {}",
             written.len(),
-            written.join("\n  ")
+            written.join("\n - ")
         )))
     }
 }

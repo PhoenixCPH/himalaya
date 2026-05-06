@@ -22,6 +22,8 @@ pub struct Config {
     pub downloads_dir: Option<PathBuf>,
     pub table_preset: Option<String>,
     pub table_arrangement: Option<TableArrangementConfig>,
+    #[serde(default)]
+    pub envelope: EnvelopeConfig,
     pub accounts: HashMap<String, AccountConfig>,
 }
 
@@ -77,6 +79,9 @@ pub struct AccountConfig {
     pub table_preset: Option<String>,
     pub table_arrangement: Option<TableArrangementConfig>,
 
+    #[serde(default)]
+    pub envelope: EnvelopeConfig,
+
     #[allow(unused)]
     pub imap: Option<ImapConfig>,
     #[allow(unused)]
@@ -85,6 +90,30 @@ pub struct AccountConfig {
     pub maildir: Option<MaildirConfig>,
     #[allow(unused)]
     pub smtp: Option<SmtpConfig>,
+}
+
+/// Envelope-level rendering options.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct EnvelopeConfig {
+    #[serde(default)]
+    pub list: EnvelopeListConfig,
+}
+
+/// `envelopes list` rendering options. Mirrors the pre-v2
+/// `envelope.list.*` keys.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+pub struct EnvelopeListConfig {
+    /// chrono `strftime` format used to render the DATE column.
+    /// Defaults to `"%F %R%:z"` (e.g. `2026-05-06 14:30+02:00`) when
+    /// neither the global nor the account config sets it.
+    pub datetime_fmt: Option<String>,
+
+    /// When `true`, the `Date:` header timezone offset is converted
+    /// to the system's local timezone before formatting. Defaults to
+    /// `false`, which preserves the wire offset.
+    pub datetime_local_tz: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

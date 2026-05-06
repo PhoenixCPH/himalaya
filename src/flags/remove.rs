@@ -10,9 +10,9 @@ use crate::{
     flags::arg::{FlagsArg, MailboxIdArg, MessageIdsArg},
 };
 
-/// Add flag(s) to message(s) for the active account.
+/// Remove flag(s) from message(s) for the active account.
 #[derive(Debug, Parser)]
-pub struct FlagAddCommand {
+pub struct FlagRemoveCommand {
     #[command(flatten)]
     pub mailbox_id: MailboxIdArg,
     #[command(flatten)]
@@ -21,7 +21,7 @@ pub struct FlagAddCommand {
     pub flags: FlagsArg,
 }
 
-impl FlagAddCommand {
+impl FlagRemoveCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,
@@ -34,9 +34,9 @@ impl FlagAddCommand {
         let ids: Vec<&str> = self.message_ids.inner.iter().map(String::as_str).collect();
         let flags: Vec<Flag> = self.flags.inner.iter().map(Into::into).collect();
 
-        client.add_flags(&self.mailbox_id.inner, &ids, &flags)?;
+        client.delete_flags(&self.mailbox_id.inner, &ids, &flags)?;
 
-        let message = Message::new("Flag(s) successfully added");
+        let message = Message::new("Flag(s) successfully removed");
         printer.out(message)
     }
 }

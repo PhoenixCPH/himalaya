@@ -29,7 +29,7 @@ const READ_BUFFER_SIZE: usize = 16 * 1024;
 /// name); Maildir writes a new file under the target maildir's `cur/`
 /// subdir using the standard tmp-then-rename delivery protocol.
 #[derive(Debug, Parser)]
-pub struct MessagesAddCommand {
+pub struct MessageAddCommand {
     /// Destination mailbox name or path. Mandatory.
     #[arg(long = "mailbox", short = 'm', value_name = "NAME")]
     pub mailbox: String,
@@ -43,7 +43,7 @@ pub struct MessagesAddCommand {
     pub file: Option<PathBuf>,
 }
 
-impl MessagesAddCommand {
+impl MessageAddCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

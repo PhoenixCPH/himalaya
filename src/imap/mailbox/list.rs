@@ -3,6 +3,7 @@ use std::fmt;
 use anyhow::Result;
 use clap::Parser;
 use comfy_table::{Cell, Row, Table};
+use io_email::mailbox::MailboxRole;
 use io_imap::types::{core::QuotedChar, flag::FlagNameAttribute, mailbox::Mailbox};
 use pimalaya_cli::printer::Printer;
 use serde::Serialize;
@@ -66,14 +67,25 @@ impl fmt::Display for MailboxesTable {
             .set_header(Row::from([
                 Cell::new("NAME"),
                 Cell::new("DELIMITER"),
+                Cell::new("ROLE"),
                 Cell::new("ATTRIBUTES"),
             ]))
             .add_rows(self.mailboxes.iter().map(|mbox| {
                 let mut row = Row::new();
 
+                let role = mbox
+                    .attributes
+                    .iter()
+                    .find_map(|raw| match MailboxRole::parse(raw) {
+                        MailboxRole::Other(_) => None,
+                        role => Some(format!("{role:?}")),
+                    })
+                    .unwrap_or_default();
+
                 row.max_height(1)
                     .add_cell(Cell::new(&mbox.name))
                     .add_cell(Cell::new(&mbox.delimiter))
+                    .add_cell(Cell::new(role))
                     .add_cell(Cell::new(mbox.attributes.join(", ")));
 
                 row

@@ -9,10 +9,10 @@ use crate::maildir::{
     message::cli::MaildirMessageCommand, rename::MaildirMailboxRenameCommand,
 };
 
-/// MAILDIR CLI (requires the `maildir` cargo feature).
+/// Maildir CLI.
 ///
-/// This command gives you access to the MAILDIR CLI API, and allows you
-/// to manage MAILDIR mailboxes, envelopes, flags, messages etc.
+/// This command gives you access to the Maildir CLI API, and allows
+/// you to manage Maildir mailboxes, envelopes, flags, messages etc.
 #[derive(Debug, Subcommand)]
 #[command(rename_all = "kebab-case")]
 pub enum MaildirCommand {

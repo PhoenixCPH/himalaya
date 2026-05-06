@@ -29,7 +29,7 @@ use crate::{
 /// composition (multipart MIME, MML directives, etc.) build the
 /// message externally and pipe it through `messages send`.
 #[derive(Debug, Parser)]
-pub struct MessagesComposeCommand {
+pub struct MessageComposeCommand {
     /// Sender address (`From` header). Plain `local@host` form.
     #[arg(long, value_name = "ADDR")]
     pub from: Option<String>,
@@ -134,7 +134,7 @@ pub enum PostingStyle {
     Bottom,
 }
 
-impl MessagesComposeCommand {
+impl MessageComposeCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,
@@ -178,7 +178,7 @@ impl MessagesComposeCommand {
 }
 
 fn build_message(
-    cmd: &MessagesComposeCommand,
+    cmd: &MessageComposeCommand,
     #[cfg_attr(
         not(any(feature = "imap", feature = "jmap", feature = "maildir")),
         allow(unused_variables)
@@ -289,7 +289,7 @@ fn addresses(values: &[String]) -> Address<'static> {
     )
 }
 
-fn read_body(cmd: &MessagesComposeCommand) -> Result<String> {
+fn read_body(cmd: &MessageComposeCommand) -> Result<String> {
     if let Some(body) = &cmd.body {
         return Ok(body.clone());
     }
@@ -308,7 +308,7 @@ fn read_body(cmd: &MessagesComposeCommand) -> Result<String> {
     Ok(String::new())
 }
 
-fn read_signature(cmd: &MessagesComposeCommand) -> Result<Option<String>> {
+fn read_signature(cmd: &MessageComposeCommand) -> Result<Option<String>> {
     if let Some(sig) = &cmd.signature {
         return Ok(Some(sig.clone()));
     }

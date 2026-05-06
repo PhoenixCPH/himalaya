@@ -1,45 +1,45 @@
+use std::fmt;
+
 use anyhow::{bail, Result};
 use clap::Parser;
+use comfy_table::{Cell, ContentArrangement, Row, Table};
 use mail_parser::{MessageParser, MessagePart, MimeHeaders};
 use pimalaya_cli::printer::Printer;
+use serde::Serialize;
 
 use crate::{
     account::Account,
-    attachments::table::{AttachmentEntry, AttachmentsTable},
     cli::BackendArg,
     config::{AccountConfig, Config},
+    flags::arg::MailboxIdArg,
 };
 
 /// List the attachments carried by a single message in the active
 /// account.
 ///
-/// "Attachment" follows mail_parser's classification: parts with
-/// `Content-Disposition: attachment`, or any non-body part with a
-/// `filename`/`name` parameter. Inline parts (e.g. embedded images
-/// referenced by HTML bodies) are skipped by default; pass
-/// `--include-inline` to surface them too.
+/// Each row carries a 1-based `ID` matching the position of the part
+/// in mail_parser's attachment iteration order. The `ID` is stable
+/// regardless of the `--inline` filter — listing only the attachment
+/// parts and listing every non-body part assign the same id to the
+/// same underlying part. So if a message has parts `1=attachment,
+/// 2=attachment, 3=inline, 4=attachment`, the default listing shows
+/// `1 2 4` and `--inline` shows `1 2 3 4`.
+///
+/// Pass `--inline` to surface inline parts (typically embedded images
+/// referenced by HTML bodies via `cid:`).
 #[derive(Debug, Parser)]
-pub struct AttachmentsListCommand {
-    /// Identifier of the message (IMAP UID, JMAP email id, or Maildir
-    /// filename id).
-    #[arg(value_name = "ID")]
-    pub id: String,
-
-    /// Mailbox name or path (IMAP/Maildir). Ignored for JMAP.
-    #[arg(
-        long = "mailbox",
-        short = 'm',
-        value_name = "NAME",
-        default_value = "Inbox"
-    )]
-    pub mailbox: String,
-
+pub struct AttachmentListCommand {
+    #[command(flatten)]
+    pub mailbox_id: MailboxIdArg,
+    /// Identifier of the message.
+    #[arg(value_name = "MESSAGE-ID")]
+    pub message_id: String,
     /// Include parts with `Content-Disposition: inline`.
-    #[arg(long = "include-inline")]
-    pub include_inline: bool,
+    #[arg(long, short)]
+    pub inline: bool,
 }
 
-impl AttachmentsListCommand {
+impl AttachmentListCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,
@@ -51,8 +51,8 @@ impl AttachmentsListCommand {
             &config,
             &account_config,
             backend,
-            &self.mailbox,
-            &self.id,
+            &self.mailbox_id.inner,
+            &self.message_id,
         )?;
 
         let Some(message) = MessageParser::new().parse(&raw) else {
@@ -62,18 +62,15 @@ impl AttachmentsListCommand {
         let mut attachments = Vec::new();
         for (index, part) in message.attachments().enumerate() {
             let inline = is_inline(part);
-            if inline && !self.include_inline {
+            if inline && !self.inline {
                 continue;
             }
 
-            attachments.push(AttachmentEntry {
-                index,
-                filename: part
-                    .attachment_name()
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| format!("attachment-{index}")),
+            attachments.push(Attachment {
+                id: (index + 1).to_string(),
+                filename: part.attachment_name().map(str::to_owned),
                 mime: mime_string(part),
-                size: part.contents().len(),
+                size: part.contents().len() as u64,
                 inline,
             });
         }
@@ -82,11 +79,14 @@ impl AttachmentsListCommand {
         // an `Account<()>` is enough to read the preset/arrangement.
         let account = Account::new(config, account_config, ())?;
 
-        printer.out(AttachmentsTable {
+        let attachments = Attachments {
             preset: account.table_preset,
             arrangement: account.table_arrangement,
+            with_inline: self.inline,
             attachments,
-        })
+        };
+
+        printer.out(attachments)
     }
 }
 
@@ -96,12 +96,91 @@ fn is_inline(part: &MessagePart<'_>) -> bool {
         .unwrap_or(false)
 }
 
-fn mime_string(part: &MessagePart<'_>) -> String {
-    let Some(ct) = part.content_type() else {
-        return "application/octet-stream".to_string();
-    };
-    match ct.c_subtype.as_deref() {
+fn mime_string(part: &MessagePart<'_>) -> Option<String> {
+    let ct = part.content_type()?;
+    Some(match ct.c_subtype.as_deref() {
         Some(sub) => format!("{}/{}", ct.c_type, sub),
         None => ct.c_type.to_string(),
+    })
+}
+
+/// One row of the `attachments list` output.
+#[derive(Clone, Debug, Serialize)]
+pub struct Attachment {
+    /// 1-based linear index in mail-parser's attachment iteration
+    /// order. Stable across the `--inline` filter.
+    pub id: String,
+    /// Filename from `Content-Disposition: filename=` (or
+    /// `Content-Type: name=`), RFC 2231-decoded. `None` when the
+    /// source provides no name.
+    pub filename: Option<String>,
+    /// MIME type (e.g. `"application/pdf"`). `None` when the source
+    /// omits the `Content-Type` header.
+    pub mime: Option<String>,
+    /// Size in bytes of the decoded part body.
+    pub size: u64,
+    /// `true` when the part carries `Content-Disposition: inline`.
+    pub inline: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Attachments {
+    #[serde(skip)]
+    pub preset: String,
+    #[serde(skip)]
+    pub arrangement: ContentArrangement,
+    #[serde(skip)]
+    pub with_inline: bool,
+    pub attachments: Vec<Attachment>,
+}
+
+impl fmt::Display for Attachments {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut table = Table::new();
+
+        let mut header = vec![
+            Cell::new("ID"),
+            Cell::new("FILENAME"),
+            Cell::new("TYPE"),
+            Cell::new("SIZE"),
+        ];
+        if self.with_inline {
+            header.push(Cell::new("INLINE"));
+        }
+
+        table
+            .load_preset(&self.preset)
+            .set_content_arrangement(self.arrangement.clone())
+            .set_header(Row::from(header))
+            .add_rows(self.attachments.iter().map(|a| {
+                let mut row = Row::new();
+                row.max_height(1);
+                row.add_cell(Cell::new(&a.id));
+                row.add_cell(Cell::new(a.filename.as_deref().unwrap_or("")));
+                row.add_cell(Cell::new(a.mime.as_deref().unwrap_or("")));
+                row.add_cell(Cell::new(human_size(a.size)));
+                if self.with_inline {
+                    row.add_cell(Cell::new(if a.inline { "yes" } else { "no" }));
+                }
+                row
+            }));
+
+        writeln!(f)?;
+        writeln!(f, "{table}")
+    }
+}
+
+fn human_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
+    let mut size = bytes as f64;
+    let mut unit = 0;
+    while size >= 1024.0 && unit < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{size:.1} {}", UNITS[unit])
     }
 }

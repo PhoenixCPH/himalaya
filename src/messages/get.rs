@@ -22,7 +22,7 @@ use crate::{
 /// instead, or use the global `--json` flag to emit the parsed message
 /// as JSON.
 #[derive(Debug, Parser)]
-pub struct MessagesGetCommand {
+pub struct MessageGetCommand {
     /// Identifier of the message (IMAP UID, JMAP email id, or Maildir
     /// filename id).
     #[arg(value_name = "ID")]
@@ -44,7 +44,7 @@ pub struct MessagesGetCommand {
     pub raw: bool,
 }
 
-impl MessagesGetCommand {
+impl MessageGetCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

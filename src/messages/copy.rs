@@ -23,7 +23,7 @@ const READ_BUFFER_SIZE: usize = 16 * 1024;
 /// the underlying file. Cross-account / cross-backend copy is out of
 /// scope.
 #[derive(Debug, Parser)]
-pub struct MessagesCopyCommand {
+pub struct MessageCopyCommand {
     #[command(flatten)]
     pub ids: MessageIdsArg,
 
@@ -42,7 +42,7 @@ pub struct MessagesCopyCommand {
     pub to: String,
 }
 
-impl MessagesCopyCommand {
+impl MessageCopyCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

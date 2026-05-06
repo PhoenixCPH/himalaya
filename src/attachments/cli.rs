@@ -3,23 +3,23 @@ use clap::Subcommand;
 use pimalaya_cli::printer::Printer;
 
 use crate::{
-    attachments::{download::AttachmentsDownloadCommand, list::AttachmentsListCommand},
+    attachments::{download::AttachmentDownloadCommand, list::AttachmentListCommand},
     cli::BackendArg,
     config::{AccountConfig, Config},
 };
 
-/// List or download attachments carried by a single message.
+/// Shared API to manage attachments for the active account.
 ///
-/// Available wherever `messages get` is — that is, IMAP, JMAP and
-/// Maildir. The active backend is selected by `--backend` (default
-/// `auto`).
+/// An attachment is a binary part of a message.
 #[derive(Debug, Subcommand)]
-pub enum AttachmentsCommand {
-    List(AttachmentsListCommand),
-    Download(AttachmentsDownloadCommand),
+pub enum AttachmentCommand {
+    #[command(visible_alias = "ls")]
+    List(AttachmentListCommand),
+    #[command(visible_alias = "dl")]
+    Download(AttachmentDownloadCommand),
 }
 
-impl AttachmentsCommand {
+impl AttachmentCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

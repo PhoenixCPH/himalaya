@@ -4,7 +4,7 @@ use pimalaya_cli::printer::Printer;
 
 use crate::smtp::{account::SmtpAccount, message::cli::SmtpMessageCommand};
 
-/// SMTP CLI (requires `smtp` cargo feature).
+/// SMTP CLI.
 ///
 /// This command gives you access to the SMTP CLI API, and allows
 /// you to manage SMTP mailboxes: list mailboxes, read messages,

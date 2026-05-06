@@ -5,21 +5,19 @@ use pimalaya_cli::printer::Printer;
 use crate::{
     cli::BackendArg,
     config::{AccountConfig, Config},
-    mailboxes::list::MailboxesListCommand,
+    mailboxes::list::MailboxListCommand,
 };
 
-/// Manage mailboxes through whichever backend the active account has
-/// configured.
+/// Shared API to manage mailboxes for the active account.
 ///
-/// The active backend is selected by `--backend` (defaults to `auto`,
-/// which picks the first configured backend in priority order).
+/// A mailbox is a message container.
 #[derive(Debug, Subcommand)]
-pub enum MailboxesCommand {
+pub enum MailboxCommand {
     #[command(visible_alias = "ls")]
-    List(MailboxesListCommand),
+    List(MailboxListCommand),
 }
 
-impl MailboxesCommand {
+impl MailboxCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

@@ -8,10 +8,9 @@
 //!
 //! 1. Confirm with the user. Exit if they decline.
 //! 2. Ask for an account name and email address.
-//! 3. Run discovery — currently PACC only; Mozilla Autoconfig will
-//!    join it once `io-discovery`'s `autoconfig` feature builds again.
-//!    Both probes will then run in parallel via `std::thread::scope`,
-//!    PACC results preferred.
+//! 3. Run discovery — PACC and Mozilla Autoconfig in parallel via
+//!    `std::thread::scope`. PACC results take precedence; missing
+//!    fields are filled from Autoconfig.
 //! 4. Convert any discovery hit into [`WizardImapConfig`] /
 //!    [`WizardSmtpConfig`] defaults, hand them to the per-protocol
 //!    wizards in [`pimalaya_cli::wizard`].
@@ -20,9 +19,16 @@
 use std::{collections::HashMap, path::Path, process::exit, thread};
 
 use anyhow::{anyhow, bail, Result};
-use io_discovery::pacc::{
-    client::{DiscoveryPaccClient, DiscoveryPaccClientError},
-    types::PaccConfig,
+use io_discovery::{
+    autoconfig::{
+        client::DiscoveryAutoconfigClient,
+        coroutines::{dns_mx::mx_parent_domain, isp::DiscoveryIsp},
+        types::{Autoconfig, SecurityType, Server, ServerType},
+    },
+    pacc::{
+        client::{DiscoveryPaccClient, DiscoveryPaccClientError},
+        types::PaccConfig,
+    },
 };
 use io_process::command::Command;
 use log::{debug, info};
@@ -62,8 +68,21 @@ pub fn run_or_exit(target: &Path) -> Result<Config> {
         .split_once('@')
         .ok_or_else(|| anyhow!("Invalid email address `{email}`: missing `@`"))?;
 
-    info!("Discovering provider settings for {domain}…");
-    let (imap_defaults, smtp_defaults) = discover(domain);
+    info!("Looking up provider settings for {domain}…");
+    let (imap_defaults, smtp_defaults) = discover(local_part, domain);
+
+    match (&imap_defaults, &smtp_defaults) {
+        (None, None) => {
+            info!("No provider settings auto-discovered, please enter them manually.");
+        }
+        (imap, smtp) => {
+            info!(
+                "Provider settings auto-discovered (imap: {}, smtp: {}).",
+                imap.is_some(),
+                smtp.is_some(),
+            );
+        }
+    }
 
     let imap = imap_wizard::run(&account_name, local_part, domain, imap_defaults.as_ref())?;
     let smtp = smtp_wizard::run(&account_name, local_part, domain, smtp_defaults.as_ref())?;
@@ -73,6 +92,7 @@ pub fn run_or_exit(target: &Path) -> Result<Config> {
         downloads_dir: None,
         table_preset: None,
         table_arrangement: None,
+        envelope: Default::default(),
         imap: Some(imap_to_config(imap)?),
         jmap: None,
         maildir: None,
@@ -83,6 +103,7 @@ pub fn run_or_exit(target: &Path) -> Result<Config> {
         downloads_dir: None,
         table_preset: None,
         table_arrangement: None,
+        envelope: Default::default(),
         accounts: HashMap::from([(account_name, account)]),
     };
 
@@ -92,22 +113,33 @@ pub fn run_or_exit(target: &Path) -> Result<Config> {
     Ok(config)
 }
 
-/// Runs configured discovery probes in parallel and returns the
-/// merged IMAP/SMTP defaults. Currently PACC-only; Mozilla Autoconfig
-/// will join once io-discovery's `autoconfig` feature compiles.
-fn discover(domain: &str) -> (Option<WizardImapConfig>, Option<WizardSmtpConfig>) {
+/// Runs PACC and Mozilla Autoconfig probes in parallel and merges
+/// their results. PACC values are preferred when both succeed, with
+/// Autoconfig filling in any field PACC didn't return.
+fn discover(
+    local_part: &str,
+    domain: &str,
+) -> (Option<WizardImapConfig>, Option<WizardSmtpConfig>) {
     thread::scope(|scope| {
-        let pacc = scope.spawn(|| run_pacc(domain));
+        let pacc_handle = scope.spawn(|| run_pacc(domain));
+        let autoconfig_handle = scope.spawn(|| run_autoconfig(local_part, domain));
 
-        let pacc = pacc.join().unwrap_or_else(|_| {
+        let pacc = pacc_handle.join().unwrap_or_else(|_| {
             debug!("PACC discovery thread panicked");
             None
         });
+        let autoconfig = autoconfig_handle.join().unwrap_or_else(|_| {
+            debug!("Autoconfig discovery thread panicked");
+            None
+        });
 
-        match pacc {
-            Some(config) => pacc_defaults(&config),
-            None => (None, None),
-        }
+        let (pacc_imap, pacc_smtp) = pacc.as_ref().map(pacc_defaults).unwrap_or((None, None));
+        let (autoconfig_imap, autoconfig_smtp) = autoconfig
+            .as_ref()
+            .map(autoconfig_defaults)
+            .unwrap_or((None, None));
+
+        (pacc_imap.or(autoconfig_imap), pacc_smtp.or(autoconfig_smtp))
     })
 }
 
@@ -132,6 +164,131 @@ fn run_pacc(domain: &str) -> Option<PaccConfig> {
             None
         }
     }
+}
+
+/// Tries the Mozilla Autoconfig discovery chain — direct ISP URLs,
+/// then MX-derived parent domain ISP URLs. The TXT mailconf and SRV
+/// fallbacks from the autoconfig CLI are skipped here; we keep the
+/// wizard fast and let manual entry handle the long tail.
+fn run_autoconfig(local_part: &str, domain: &str) -> Option<Autoconfig> {
+    let resolver: Url = match DEFAULT_RESOLVER.parse() {
+        Ok(url) => url,
+        Err(err) => {
+            debug!("Autoconfig: invalid default resolver `{DEFAULT_RESOLVER}`: {err}");
+            return None;
+        }
+    };
+
+    let mut client = DiscoveryAutoconfigClient::new(resolver);
+
+    if let Some(ac) = try_isp_urls(&mut client, local_part, domain) {
+        return Some(ac);
+    }
+
+    let mx_parent = match client.mx(domain) {
+        Ok(records) => records
+            .first()
+            .map(|r| r.rdata.exchange.to_string())
+            .and_then(|t| mx_parent_domain(&t))
+            .filter(|d| d != domain),
+        Err(err) => {
+            debug!("Autoconfig MX lookup for {domain} failed: {err}");
+            None
+        }
+    };
+
+    if let Some(parent) = mx_parent {
+        debug!("Autoconfig: re-trying ISPs against MX parent {parent}");
+        if let Some(ac) = try_isp_urls(&mut client, local_part, &parent) {
+            return Some(ac);
+        }
+    }
+
+    None
+}
+
+fn try_isp_urls(
+    client: &mut DiscoveryAutoconfigClient,
+    local_part: &str,
+    domain: &str,
+) -> Option<Autoconfig> {
+    let urls = match DiscoveryIsp::all_urls(local_part, domain) {
+        Ok(urls) => urls,
+        Err(err) => {
+            debug!("Autoconfig: cannot build ISP URLs for {domain}: {err}");
+            return None;
+        }
+    };
+
+    for url in urls {
+        match client.isp(url.clone()) {
+            Ok(ac) => return Some(ac),
+            Err(err) => debug!("Autoconfig ISP attempt at {url} failed: {err}"),
+        }
+    }
+
+    None
+}
+
+fn autoconfig_defaults(ac: &Autoconfig) -> (Option<WizardImapConfig>, Option<WizardSmtpConfig>) {
+    let imap = ac
+        .email_provider
+        .incoming_server
+        .iter()
+        .find(|s| matches!(s.r#type, ServerType::Imap))
+        .and_then(autoconfig_imap);
+
+    let smtp = ac
+        .email_provider
+        .outgoing_server
+        .iter()
+        .find(|s| matches!(s.r#type, ServerType::Smtp))
+        .and_then(autoconfig_smtp);
+
+    (imap, smtp)
+}
+
+fn autoconfig_imap(server: &Server) -> Option<WizardImapConfig> {
+    let host = server.hostname.clone()?;
+    let encryption = match server.socket_type {
+        Some(SecurityType::Tls) => ImapEncryption::Tls,
+        Some(SecurityType::Starttls) => ImapEncryption::StartTls,
+        _ => ImapEncryption::None,
+    };
+    let port = server.port.unwrap_or(match encryption {
+        ImapEncryption::Tls => 993,
+        _ => 143,
+    });
+
+    Some(WizardImapConfig {
+        host,
+        port,
+        encryption,
+        login: String::new(),
+        auth: ImapAuth::Password(ImapSecret::Raw(String::new().into())),
+    })
+}
+
+fn autoconfig_smtp(server: &Server) -> Option<WizardSmtpConfig> {
+    let host = server.hostname.clone()?;
+    let encryption = match server.socket_type {
+        Some(SecurityType::Tls) => SmtpEncryption::Tls,
+        Some(SecurityType::Starttls) => SmtpEncryption::StartTls,
+        _ => SmtpEncryption::None,
+    };
+    let port = server.port.unwrap_or(match encryption {
+        SmtpEncryption::Tls => 465,
+        SmtpEncryption::StartTls => 587,
+        SmtpEncryption::None => 25,
+    });
+
+    Some(WizardSmtpConfig {
+        host,
+        port,
+        encryption,
+        login: String::new(),
+        auth: SmtpAuth::Password(SmtpSecret::Raw(String::new().into())),
+    })
 }
 
 fn pacc_defaults(config: &PaccConfig) -> (Option<WizardImapConfig>, Option<WizardSmtpConfig>) {

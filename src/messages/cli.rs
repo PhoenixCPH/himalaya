@@ -6,8 +6,8 @@ use crate::{
     cli::BackendArg,
     config::{AccountConfig, Config},
     messages::{
-        add::MessagesAddCommand, compose::MessagesComposeCommand, copy::MessagesCopyCommand,
-        get::MessagesGetCommand, mv::MessagesMoveCommand, send::MessagesSendCommand,
+        add::MessageAddCommand, compose::MessageComposeCommand, copy::MessageCopyCommand,
+        get::MessageGetCommand, mv::MessageMoveCommand, send::MessageSendCommand,
     },
 };
 
@@ -19,17 +19,18 @@ use crate::{
 /// that `messages send` only has SMTP and JMAP arms; the others have
 /// IMAP, JMAP and Maildir arms.
 #[derive(Debug, Subcommand)]
-pub enum MessagesCommand {
-    Add(MessagesAddCommand),
-    Compose(MessagesComposeCommand),
-    Copy(MessagesCopyCommand),
-    Get(MessagesGetCommand),
-    #[command(name = "move")]
-    Move(MessagesMoveCommand),
-    Send(MessagesSendCommand),
+pub enum MessageCommand {
+    Add(MessageAddCommand),
+    Compose(MessageComposeCommand),
+    #[command(alias = "cp")]
+    Copy(MessageCopyCommand),
+    Get(MessageGetCommand),
+    #[command(alias = "mv")]
+    Move(MessageMoveCommand),
+    Send(MessageSendCommand),
 }
 
-impl MessagesCommand {
+impl MessageCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

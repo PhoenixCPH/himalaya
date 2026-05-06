@@ -23,7 +23,7 @@ const READ_BUFFER_SIZE: usize = 16 * 1024;
 /// `mailboxIds`; Maildir renames the underlying file. Cross-account /
 /// cross-backend move is out of scope.
 #[derive(Debug, Parser)]
-pub struct MessagesMoveCommand {
+pub struct MessageMoveCommand {
     #[command(flatten)]
     pub ids: MessageIdsArg,
 
@@ -42,7 +42,7 @@ pub struct MessagesMoveCommand {
     pub to: String,
 }
 
-impl MessagesMoveCommand {
+impl MessageMoveCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,

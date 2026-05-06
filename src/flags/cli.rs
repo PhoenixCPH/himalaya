@@ -5,23 +5,22 @@ use pimalaya_cli::printer::Printer;
 use crate::{
     cli::BackendArg,
     config::{AccountConfig, Config},
-    flags::{add::FlagsAddCommand, delete::FlagsDeleteCommand, set::FlagsSetCommand},
+    flags::{add::FlagAddCommand, remove::FlagRemoveCommand, set::FlagSetCommand},
 };
 
-/// Manage flags through whichever backend the active account has
-/// configured.
+/// Shared API to manage message flags for the active account.
 ///
-/// The active backend is selected by `--backend` (defaults to `auto`,
-/// which picks the first configured backend in priority order).
+/// A flag is acting like a tag, giving information about the state or
+/// kind of a message.
 #[derive(Debug, Subcommand)]
-pub enum FlagsCommand {
-    Add(FlagsAddCommand),
-    Set(FlagsSetCommand),
-    #[command(visible_alias = "remove", visible_alias = "rm")]
-    Delete(FlagsDeleteCommand),
+pub enum FlagCommand {
+    Add(FlagAddCommand),
+    Set(FlagSetCommand),
+    #[command(visible_alias = "rm")]
+    Remove(FlagRemoveCommand),
 }
 
-impl FlagsCommand {
+impl FlagCommand {
     pub fn execute(
         self,
         printer: &mut impl Printer,
@@ -32,7 +31,7 @@ impl FlagsCommand {
         match self {
             Self::Add(cmd) => cmd.execute(printer, config, account_config, backend),
             Self::Set(cmd) => cmd.execute(printer, config, account_config, backend),
-            Self::Delete(cmd) => cmd.execute(printer, config, account_config, backend),
+            Self::Remove(cmd) => cmd.execute(printer, config, account_config, backend),
         }
     }
 }
